@@ -1,5 +1,5 @@
 import os
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from flask_smorest import Blueprint, abort
 from openai import OpenAI
 import pinecone
@@ -11,11 +11,12 @@ from db import db
 # Initialize your Blueprint
 blp = Blueprint('text_processor', __name__, description="Text processing operations")
 
-# Set your OpenAI API key
-client = OpenAI()
 
 @blp.route('/articles/<string:article_id>/process', methods=['GET'])
 def process_text(article_id):
+
+    # Set your OpenAI API key
+    client = OpenAI(api_key=current_app.config['OPENAI_API_KEY'])
 
     # Extract the paragraphs from the request
     article = ArticleModel.query.get_or_404(article_id)

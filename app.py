@@ -13,7 +13,21 @@ from models import ArticleModel
 from dotenv import load_dotenv
 from db import db
 
-from utils.celery_utils import make_celery
+from tasks import get_articles_info_celery
+
+from celery import Celery
+
+def make_celery(app):
+    celery = Celery(app.import_name)
+    celery.conf.update(app.config["CELERY_CONFIG"])
+
+    class ContextTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery.Task = ContextTask
+    return celery
 
 def create_app():
     app = Flask(__name__)
@@ -27,6 +41,9 @@ def create_app():
     app.config["OPENAPI_URL_PREFIX"] = "/"
     app.config["OPENAPI_SWAGGER_UI_PATH"] = "/swagger-ui"
     app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
+
+    # Secret key
+    # app.config["SECRET_KEY"] = "Oz8Z7Iu&DwoQK)g%*Wit2YpE#-46vy0n"
 
     # DB configurations
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
@@ -48,9 +65,12 @@ def create_app():
     # Configure CORS to allow multiple origins
     CORS(app, resources={r"/*": {"origins": allowed_origins}})
 
-    # Celery configurations
-    app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0' 
-    app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-    celery = make_celery(app)
+    # # OpenAI configuration
+    # app.config['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
 
-    return app
+    # Celery configurations
+    app.config["CELERY_CONFIG"] = {"broker_url": "redis://redis", "result_backend": "redis://redis"}
+    celery = make_celery(app)
+    celery.set_default()
+
+    return app, celery
