@@ -69,7 +69,7 @@ def create_app():
     # app.config['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
 
     # Celery configurations
-    app.config["CELERY_CONFIG"] = {"broker_url": "redis://redis", "result_backend": "redis://redis"}
+    app.config["CELERY_CONFIG"] = {"broker_url": os.getenv("REDIS_URL"), "result_backend": os.getenv("REDIS_URL")}
     celery = make_celery(app)
     celery.set_default()
 
