@@ -8,6 +8,7 @@ from flask_cors import CORS
 from resources.article_scraper import blp as ArticleScraperBlueprint
 from resources.text_processer import blp as TextProcesserBlueprint
 from resources.articles import blp as ArticleBlueprint
+from resources.tasks import blp as TaskBlueprint
 
 from models import ArticleModel
 from dotenv import load_dotenv
@@ -56,6 +57,7 @@ def create_app():
     api.register_blueprint(ArticleScraperBlueprint)
     api.register_blueprint(TextProcesserBlueprint)
     api.register_blueprint(ArticleBlueprint)
+    api.register_blueprint(TaskBlueprint)
 
     # CORS configurations
     allowed_origins = [
@@ -66,7 +68,7 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": allowed_origins}})
 
     # # OpenAI configuration
-    # app.config['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
+    app.config['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
 
     # Celery configurations
     app.config["CELERY_CONFIG"] = {"broker_url": os.getenv("REDIS_URL"), "result_backend": os.getenv("REDIS_URL")}

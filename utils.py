@@ -4,3 +4,6 @@ def paragraph_is_lengthy(paragraph):
         return True
     else:
         return False
+
+def text_is_lengthy(text_block):
+    pass

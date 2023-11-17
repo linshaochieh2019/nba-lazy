@@ -13,6 +13,7 @@ class ArticleModel(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     paragraphs = db.relationship('ParagraphModel', back_populates='article')
     summaries = db.relationship('ArticleSummaryModel', back_populates='article')
+    has_paragraphs = db.Column(db.Boolean, default=False)
     is_processed = db.Column(db.Boolean, default=False)
     has_embedding = db.Column(db.Boolean, default=False)
     upvotes = db.Column(db.Integer, default=0)
