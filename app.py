@@ -59,14 +59,6 @@ def create_app():
     api.register_blueprint(ArticleBlueprint)
     api.register_blueprint(TaskBlueprint)
 
-    # CORS configurations
-    allowed_origins = [
-        "http://localhost:3000",
-    ]
-
-    # Configure CORS to allow multiple origins
-    CORS(app, resources={r"/*": {"origins": allowed_origins}})
-
     # # OpenAI configuration
     app.config['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
 

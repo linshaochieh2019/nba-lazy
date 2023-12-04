@@ -1,7 +1,6 @@
 beautifulsoup4==4.12.2
 celery==5.3.5
 Flask==2.3.3
-Flask-Cors==4.0.0
 Flask-Migrate==4.0.5
 flask-paginate==2022.1.8
 flask-smorest==0.42.1

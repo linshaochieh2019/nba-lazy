@@ -4,9 +4,11 @@ from models import ArticleModel, ParagraphModel, ArticleSummaryModel
 from bs4 import BeautifulSoup
 from db import db
 from flask import jsonify, current_app
+from sqlalchemy import desc
+
 
 from celery import shared_task
-from utils import paragraph_is_lengthy
+from utils import paragraph_is_lengthy, count_words, extract_words
 
 from openai import OpenAI
 import pinecone
@@ -36,7 +38,7 @@ def get_articles_info_celery(self):
             url = article_info['url']
         ).first()
         if existing_article:
-            logger.info(f'Article id {existing_article.id} already scraped.')
+            logger.info(f'Article id {existing_article.id} already in our db.')
             continue
 
         # Create an instance of ArticleModel
@@ -94,40 +96,53 @@ def scrape_paragraphs_celery(self):
 
 @shared_task(bind=True)
 def generate_embeddings_celery(self):
+    # Although embeddings API can take multiple texts as inputs,
+    # but too many texts easily go beyond the token limit in 8192. 
+    # Therefore process by each text
     logger = logging.getLogger(__name__)
     logger.info('Running task with Celery: Generating embeddings ...')
 
-    articles = ArticleModel.query.filter_by(has_embedding=False).all()
+    articles = ArticleModel.query.filter_by(
+        has_paragraphs=True,
+        has_embedding=False
+        ).all()
     logger.info(f'Generating embeddings for {len(articles)} articles.')
 
-    article_texts = {}
+    # Connect to OpenAI API
+    client = OpenAI(api_key=current_app.config['OPENAI_API_KEY'])
+
+    # Process by each text
+    vectors = []
     for article in articles:
         paragraphs = ParagraphModel.query.filter_by(article_id=article.id).all()
         text_block = "\n".join([paragraph.content for paragraph in paragraphs])
-        article_texts[article.id] = text_block
+        
+        logger.info(f' -- article id {article.id}')
+        if count_words(text_block) > 2000:
+            logger.info(' ---- text is longer than 2000 words, therefore getting extract.')
+            text_block = extract_words(text_block)
 
-    # Generate embeddings
-    inputs = [v for v in article_texts.values()]
+        try:
+            # Generate embedding
+            response = client.embeddings.create(
+                model="text-embedding-ada-002",
+                input=text_block,
+                encoding_format="float"
+                )
+            vectors.append({'id': str(article.id), 'values': response.data[0].embedding})
+        except:
+            # Sometimes API failed to generate embedding for an article for several reasons.
+            pass
 
-    # Connecting to OpenAI API
-    client = OpenAI(api_key=current_app.config['OPENAI_API_KEY'])
-    response = client.embeddings.create(
-        model="text-embedding-ada-002",
-        input=inputs,
-        encoding_format="float"
-        )
-
-    # Reformat to vectors
-    vectors = [{'id': str(article_id), 'values': embedding.embedding} 
-                for article_id, embedding in zip(article_texts.keys(), response.data)]
-    
     # Connect to pincone index and upsert vectors
-    pinecone.init(      
-        api_key=os.getenv('PINECONE_API_KEY'),
-        environment='us-west1-gcp'      
-    )      
-    index = pinecone.Index('nba-lazy')
-    index.upsert(vectors=vectors)
+    if len(vectors) > 0:
+        logger.info(f'Number of embeddings to be upserted: {len(vectors)}.')
+        pinecone.init(      
+            api_key=os.getenv('PINECONE_API_KEY'),
+            environment='us-west1-gcp'      
+        )      
+        index = pinecone.Index('nba-lazy')
+        index.upsert(vectors=vectors)
 
     # Flag articles as has_embedding
     for article in articles:
@@ -140,7 +155,10 @@ def process_texts_celery(self):
     logger = logging.getLogger(__name__)
     logger.info('Running task with Celery: Process texts ...')
 
-    articles = ArticleModel.query.filter_by(is_processed=False).limit(5).all()
+    articles = ArticleModel.query.filter_by(
+        has_paragraphs=True,
+        is_processed=False
+        ).all()
     logger.info(f'Text processing for {len(articles)} articles.')
 
     # Set your OpenAI API key
@@ -148,9 +166,12 @@ def process_texts_celery(self):
 
     for article in articles:
         paragraphs = ParagraphModel.query.filter_by(article_id=article.id).all()
-
-        # Concatenate paragraphs into a single text block
         text_block = "\n".join([paragraph.content for paragraph in paragraphs])
+
+        logger.info(f' -- article id {article.id}')
+        if count_words(text_block) > 2000:
+            logger.info(' ---- text is longer than 2000 words, therefore getting extract.')
+            text_block = extract_words(text_block)
 
         # Step 1: Generate summary in English
         summary_response = client.chat.completions.create(

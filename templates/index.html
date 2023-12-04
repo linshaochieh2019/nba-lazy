@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="bg-white rounded p-4">
+                <ul>
+                    {% for article in articles %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <a href="/articles/{{ article.id }}" class="card-link">
+                                <h4 class="card-title">{{ article.chinese_title }}</h5>
+                            </a>
+                            <h6 class="card-subtitle mb-2 text-muted">by {{ article.source }}</h6>
+                            <p class="card-text"><small class="text-muted">Published on {{ article.created_at.strftime('%m-%d') }}</small></p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </ul>            
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
