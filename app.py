@@ -3,7 +3,6 @@ import os
 from flask import Flask
 from flask_smorest import Api
 from flask_migrate import Migrate
-from flask_cors import CORS
 
 from resources.article_scraper import blp as ArticleScraperBlueprint
 from resources.text_processer import blp as TextProcesserBlueprint
